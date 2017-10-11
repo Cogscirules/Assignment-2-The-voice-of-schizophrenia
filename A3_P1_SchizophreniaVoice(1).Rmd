@@ -18,8 +18,9 @@ N.B. There are looots of files to be dealt with. Probably too many for your comp
 1. In the course of this assignment you have to first select one datafile and figure out how to:
 
 ```{r}
+library(dplyr)
 #Load one datafile
-data_1 = read.table("Pitch/Study1D0S101T1_f0.txt", header = T)
+Study1D0S101T1_f0 = read.table("Pitch/Study1D0S101T1_f0.txt", header = T)
 
 #load id's data
 demo = read.table("DemoData.txt", header= T)
@@ -55,6 +56,15 @@ data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis"))
 
 2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
 - Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
+
+```{r}
+pitch_files=list.files(path="Pitch",full.names = T)
+
+df = lapply(pitch_files, function(x) read.table(x,header=T))
+names(df) <- substr(pitch_files, 7, 50)
+
+
+```
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
