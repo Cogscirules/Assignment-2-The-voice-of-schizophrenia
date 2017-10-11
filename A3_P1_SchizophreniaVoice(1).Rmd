@@ -1,13 +1,9 @@
 ---
-title: "Assignment2_Part1_VoiceInSchizophrenia"
+title: "Assignment 2 Part1 - Voice In Schizophrenia"
 author: "Riccardo Fusaroli"
 date: "July 17, 2016"
 output: html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 ## Assignment 2 - Part 1 - Assessing voice in schizophrenia
 
@@ -21,9 +17,41 @@ N.B. There are looots of files to be dealt with. Probably too many for your comp
 
 1. In the course of this assignment you have to first select one datafile and figure out how to:
 
+```{r}
+#Load one datafile
+data_1 = read.table("Pitch/Study1D0S101T1_f0.txt", header = T)
+
+#load id's data
+demo = read.table("DemoData.txt", header= T)
+```
 - Extract "standard" descriptors of pitch: Mean, standard deviation, range
+
+```{r}
+Subject=101
+Diagnosis="Schizophrenia"
+mean=mean(data_1$f0)
+sd=sd(data_1$f0)
+range=range(data_1$f0)
+min=range[1]
+max=range[2]
+```
 - Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
+```{r}
+median=median(data_1$f0)
+iqr=IQR(data_1$f0)
+abs_mean_dev=mean(abs(data_1$f0-mean(data_1$f0)))
+cof_var = sd(data_1$f0, na.rm=TRUE)/mean(data_1$f0, na.rm=TRUE)*100 #get coefficient of variation as percent
+```
 - Extract "complex" descriptors: recurrence quantification analysis
+```{r}
+
+```
+
+```{r}
+#merge the data together with demo data
+data_desc=data.frame(Subject,Diagnosis,mean,sd,min,max,median,iqr,abs_mean_dev,cof_var)
+data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis"))
+```
 
 2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
 - Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
