@@ -20,7 +20,7 @@ N.B. There are looots of files to be dealt with. Probably too many for your comp
 ```{r}
 library(dplyr)
 #Load one datafile
-Study1D0S101T1_f0 = read.table("Pitch/Study1D0S101T1_f0.txt", header = T)
+data_1 = read.table("Pitch/Study1D0S101T1_f0.txt", header = T)
 
 #load id's data
 demo = read.table("DemoData.txt", header= T)
@@ -45,6 +45,13 @@ cof_var = sd(data_1$f0, na.rm=TRUE)/mean(data_1$f0, na.rm=TRUE)*100 #get coeffic
 ```
 - Extract "complex" descriptors: recurrence quantification analysis
 ```{r}
+library(crqa)
+par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
+ans = optimizeParam(df$Study1D0S104T6_f0.txt$f0,df$Study1D0S104T6_f0.txt$f0, par, min.rec = 3.5, max.rec = 4.5)
+ans
+
+
+results=crqa(df$Study1D0S104T6_f0.txt$f0,df$Study1D0S104T6_f0.txt$f0,delay=ans$delay,embed=ans$emddim,radius=ans$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
 
 ```
 
@@ -60,8 +67,15 @@ data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis"))
 ```{r}
 pitch_files=list.files(path="Pitch",full.names = T)
 
-df = lapply(pitch_files, function(x) read.table(x,header=T))
-names(df) <- substr(pitch_files, 7, 50)
+df_all = lapply(pitch_files, function(x) read.table(x,header=T))
+names(df_all) <- substr(pitch_files, 7, 50)
+
+#Study1D0S101T10_f0.txt
+#123456789
+
+
+
+
 
 
 ```
