@@ -65,21 +65,6 @@ sd=sd(Study1D0S101T1_f0.txt$f0)
 range=range(Study1D0S101T1_f0.txt$f0)
 min=range[1]
 max=range[2]
-
-#turn this code to function
-#Function 1: extract standard descriptors
-get_stand_desc= function (df) {
-  mean=mean(df$f0)
-  sd=sd(df$f0)
-  range=range(df$f0)
-  min=range[1]
-  max=range[2]
-  stand_desc=data.frame(mean,sd,min,max)
-  return(stand_desc)
-}
-
-#test function
-stand_desc=get_stand_desc(Study1D0S101T1_f0.txt) #Works
 ```
 - Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
 ```{r}
@@ -87,19 +72,6 @@ median=median(Study1D0S101T1_f0.txt$f0)
 iqr=IQR(Study1D0S101T1_f0.txt$f0)
 abs_mean_dev=mean(abs(Study1D0S101T1_f0.txt$f0-mean(Study1D0S101T1_f0.txt$f0)))
 cof_var = sd(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)/mean(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)*100 #get coefficient of variation as percent
-
-#turn this to function
-get_less_stand_desc = function (df) {
-  median=median(df$f0)
-  iqr=IQR(df$f0)
-  abs_mean_dev=mean(abs(df$f0-mean(df$f0)))
-  cof_var = sd(df$f0, na.rm=TRUE)/mean(df$f0, na.rm=TRUE)*100
-  less_stand_desc=data.frame(median,iqr,abs_mean_dev,cof_var)
-  return(less_stand_desc)
-}
-
-#test function
-less_stand_desc=get_less_stand_desc(Study1D0S101T1_f0.txt) #Works
 ```
 
 
@@ -123,17 +95,97 @@ L = results$L #mean trajectory
 ENTR = results$ENTR
 LAM=results$LAM
 TT = results$TT
+```
 
+```{r}
+#merge the data together with demo data
+#data_desc=data.frame(write all variables here)
+data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis","Study"))
+```
 
-#results_fail=data.frame(RR=NA,DET=NA,maxL=NA,L=NA,ENTR=NA,LAM=NA,TT=NA)
+2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
+- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
 
-#turn into function
+```{r}
+#1. Wrap all the code from excercise 1 to functions
+#Chunk 1: turn that code to a function
+#Function 1: extract standard descriptors
+get_stand_desc= function (df) {
+  mean=mean(df$f0)
+  sd=sd(df$f0)
+  range=range(df$f0)
+  min=range[1]
+  max=range[2]
+  stand_desc=data.frame(mean,sd,min,max)
+  return(stand_desc)
+}
+
+#test function
+stand_desc=get_stand_desc(Study1D0S101T1_f0.txt) #Works
+```
+
+```{r}
+#Chunk 2: turned to function
+#turn this to function
+get_less_stand_desc = function (df) {
+  median=median(df$f0)
+  iqr=IQR(df$f0)
+  abs_mean_dev=mean(abs(df$f0-mean(df$f0)))
+  cof_var = sd(df$f0, na.rm=TRUE)/mean(df$f0, na.rm=TRUE)*100
+  less_stand_desc=data.frame(median,iqr,abs_mean_dev,cof_var)
+  return(less_stand_desc)
+}
+
+#test function
+less_stand_desc=get_less_stand_desc(Study1D0S101T1_f0.txt) #Works
+```
+
+```{r}
+#rqa needs first the list of parameters - get optimal parameters here
+#list needed for running the optimizeParam function
+par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
+
+#LOOP through all datafiles and get parameters from them - then get mean or median of all parameters to get the optimal ones that can be used for all datafiles
+param_all=data.frame()
+for (i in pitch_files) {
+  data=read.table(file=i,header=T)
+  param = tryCatch(
+    {optimizeParam(data$f0,data$f0, par, min.rec = 3.5, max.rec = 4.5)
+    },
+    error=function(cond){
+        #return results with only NAs
+        parameters_fail=list(radius=NA,emddim=NA,delay=NA)
+        return(parameters_fail)
+      })
+  radius=param$radius
+  emddim=param$emddim
+  delay=param$delay
+  param_df=data.frame(radius,emddim,delay)
+  param_all=rbind(param_df,param_all)
+}
+#remove NAs
+param_all = na.omit(param_all)
+
+#summarize param_all to final df with mean
+parameters_mean = param_all %>%
+  summarize(radius=mean(radius),emddim=mean(emddim),delay=mean(delay))
+
+#with median => seems better - numbers are similar but emddim is without decimals :-)
+parameters_median = param_all %>%
+  summarize(radius=median(radius),emddim=median(emddim),delay=median(delay))
+```
+
+```{r}
+#Chunk 3 turned into function +tryCatch implented not to crash the loop
 get_rqa= function (df,ans) {
   results=
     tryCatch(
+      #this is the try part if it gets error here it will move to the error part
       {crqa(df$f0,df$f0,delay=ans$delay,embed=ans$emddim,radius=ans$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
         },
+      #error part - if function fails this function will be executed instead
       error=function(cond){
+        #return results with only NAs
         results_fail=data.frame(RR=NA,DET=NA,maxL=NA,L=NA,ENTR=NA,LAM=NA,TT=NA)
         return(results_fail)
       }
@@ -150,21 +202,11 @@ get_rqa= function (df,ans) {
 }
 
 #test the function
-rqa_df=get_rqa(Study1D0S101T1_f0.txt,parameters) #Works
+get_rqa(Study1D0S101T1_f0.txt,parameters_final) #Works
 
 #trying to get error to test tryCatch()
-get_rqa(df_all$Study2D1S205T8_f0.txt,parameters) #gives NAs
-
+get_rqa(df_all$Study2D1S205T8_f0.txt,parameters_final) #gives NAs
 ```
-
-```{r}
-#merge the data together with demo data
-data_desc=cbind(Subject,Diagnosis,Trial,Study,stand_desc,less_stand_desc,rqa_df)
-data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis","Study"))
-```
-
-2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
-- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
 
 ```{r}
 data_all=data.frame()
