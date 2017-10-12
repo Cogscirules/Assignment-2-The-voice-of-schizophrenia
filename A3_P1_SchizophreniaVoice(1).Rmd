@@ -18,46 +18,69 @@ N.B. There are looots of files to be dealt with. Probably too many for your comp
 1. In the course of this assignment you have to first select one datafile and figure out how to:
 
 ```{r}
-library(dplyr)
+library(plyr)
 #Load one datafile
-data_1 = read.table("Pitch/Study1D0S101T1_f0.txt", header = T)
+Study1D0S101T1_f0.txt = read.table("Pitch/Study1D0S101T1_f0.txt", header = T)
+
+#Study1D0S101T1_f0.txt
+#1234567890
 
 #load id's data
 demo = read.table("DemoData.txt", header= T)
+demo$Diagnosis = revalue(demo$Diagnosis, c("Control"='0', "Schizophrenia"="1"))
+
+#load all data to a large list of dataframes
+pitch_files=list.files(path="Pitch",full.names = T)
+df_all = lapply(pitch_files, function(x) read.table(x,header=T))
+#rename the df so that it doesnt contain the whole file path but just name of the original file
+names(df_all) <- substr(pitch_files, 7, 50)
 ```
 - Extract "standard" descriptors of pitch: Mean, standard deviation, range
 
 ```{r}
-Subject=101
-Diagnosis="Schizophrenia"
-mean=mean(data_1$f0)
-sd=sd(data_1$f0)
-range=range(data_1$f0)
+df_name = deparse(substitute(Study1D0S101T1_f0.txt))
+df_name
+
+Subject=as.numeric(substr(df_name, 10, 12))
+Diagnosis=as.factor(substr(df_name,8,8))
+mean=mean(Study1D0S101T1_f0.txt$f0)
+sd=sd(Study1D0S101T1_f0.txt$f0)
+range=range(Study1D0S101T1_f0.txt$f0)
 min=range[1]
 max=range[2]
 ```
 - Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
 ```{r}
-median=median(data_1$f0)
-iqr=IQR(data_1$f0)
-abs_mean_dev=mean(abs(data_1$f0-mean(data_1$f0)))
-cof_var = sd(data_1$f0, na.rm=TRUE)/mean(data_1$f0, na.rm=TRUE)*100 #get coefficient of variation as percent
+median=median(Study1D0S101T1_f0.txt$f0)
+iqr=IQR(Study1D0S101T1_f0.txt$f0)
+abs_mean_dev=mean(abs(Study1D0S101T1_f0.txt$f0-mean(Study1D0S101T1_f0.txt$f0)))
+cof_var = sd(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)/mean(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)*100 #get coefficient of variation as percent
 ```
 - Extract "complex" descriptors: recurrence quantification analysis
 ```{r}
 library(crqa)
 par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
-ans = optimizeParam(df$Study1D0S104T6_f0.txt$f0,df$Study1D0S104T6_f0.txt$f0, par, min.rec = 3.5, max.rec = 4.5)
+
+ans = optimizeParam(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0, par, min.rec = 3.5, max.rec = 4.5)
 ans
 
 
-results=crqa(df$Study1D0S104T6_f0.txt$f0,df$Study1D0S104T6_f0.txt$f0,delay=ans$delay,embed=ans$emddim,radius=ans$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+results=crqa(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0,delay=ans$delay,embed=ans$emddim,radius=ans$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+names(results)
 
+#save rqa variables to separate variables
+RR = results$RR
+DET = results$DET
+maxL = results$maxL #maximal trajectory
+L = results$L #mean trajectory
+ENTR = results$ENTR
+LAM=results$LAM
+TT = results$TT
 ```
 
 ```{r}
 #merge the data together with demo data
-data_desc=data.frame(Subject,Diagnosis,mean,sd,min,max,median,iqr,abs_mean_dev,cof_var)
+data_desc=data.frame(Subject,Diagnosis,mean,sd,min,max,median,iqr,abs_mean_dev,cof_var,RR,DET,maxL,L,ENTR,LAM,TT)
 data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis"))
 ```
 
@@ -65,19 +88,34 @@ data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis"))
 - Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
 
 ```{r}
-pitch_files=list.files(path="Pitch",full.names = T)
+n=1
+data_all=data.frame()
 
-df_all = lapply(pitch_files, function(x) read.table(x,header=T))
-names(df_all) <- substr(pitch_files, 7, 50)
-
-#Study1D0S101T10_f0.txt
-#123456789
-
-
-
-
-
-
+for (i in df_all) {
+  df_name=names(df_all)[n]
+  n=n+1
+  Subject=as.numeric(substr(df_name, 10, 12))
+  Diagnosis=as.factor(substr(df_name,8,8))
+  mean=mean(Study1D0S101T1_f0.txt$f0)
+  sd=sd(Study1D0S101T1_f0.txt$f0)
+  range=range(Study1D0S101T1_f0.txt$f0)
+  min=range[1]
+  max=range[2]
+  median=median(Study1D0S101T1_f0.txt$f0)
+  iqr=IQR(Study1D0S101T1_f0.txt$f0)
+  abs_mean_dev=mean(abs(Study1D0S101T1_f0.txt$f0-mean(Study1D0S101T1_f0.txt$f0)))
+  cof_var = sd(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)/mean(Study1D0S101T1_f0.txt$f0,na.rm=TRUE)*100
+  results=crqa(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0,delay=ans$delay,embed=ans$emddim,radius=ans$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+  RR = results$RR
+  DET = results$DET
+  maxL = results$maxL #maximal trajectory
+  L = results$L #mean trajectory
+  ENTR = results$ENTR
+  LAM=results$LAM
+  TT = results$TT
+  data_desc=data.frame(Subject,Diagnosis,mean,sd,min,max,median,iqr,abs_mean_dev,cof_var,RR,DET,maxL,L,ENTR,LAM,TT)
+  data_all=rbind(data_all,data_desc)
+}
 ```
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
