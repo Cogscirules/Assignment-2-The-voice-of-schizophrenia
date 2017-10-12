@@ -22,8 +22,6 @@ library(plyr)
 #Load one datafile
 Study1D0S101T1_f0.txt = read.table("Pitch/Study1D0S101T1_f0.txt", header = T)
 
-#Study1D0S101T1_f0.txt
-#1234567890
 
 #load id's data
 demo = read.table("DemoData.txt", header= T)
@@ -35,19 +33,53 @@ df_all = lapply(pitch_files, function(x) read.table(x,header=T))
 #rename the df so that it doesnt contain the whole file path but just name of the original file
 names(df_all) <- substr(pitch_files, 7, 50)
 ```
-- Extract "standard" descriptors of pitch: Mean, standard deviation, range
 
 ```{r}
-df_name = deparse(substitute(Study1D0S101T1_f0.txt))
-df_name
+#get info from the name of the file
+df_name = "Pitch/Study1D0S101T1_f0.txt"
 
-Subject=as.numeric(substr(df_name, 10, 12))
-Diagnosis=as.factor(substr(df_name,8,8))
+Subject=as.numeric(substr(df_name, 16, 18))
+Diagnosis=as.factor(substr(df_name,14,14))
+Trial=substr(df_name,20,21)
+Study=as.numeric(substr(df_name,12,12))
+
+#turn it into function
+get_info=function(file_name) {
+  Subject=as.numeric(substr(file_name, 16, 18))
+  Diagnosis=as.factor(substr(file_name,14,14))
+  Trial=substr(file_name,20,21)
+  Study=as.numeric(substr(file_name,12,12))
+  info_df=data.frame(Subject,Diagnosis,Trial,Study)
+  return(info_df)
+}
+
+#test the function 
+get_info(df_name) #Works
+```
+
+- Extract "standard" descriptors of pitch: Mean, standard deviation, range
+```{r}
+#get standard descriptors
 mean=mean(Study1D0S101T1_f0.txt$f0)
 sd=sd(Study1D0S101T1_f0.txt$f0)
 range=range(Study1D0S101T1_f0.txt$f0)
 min=range[1]
 max=range[2]
+
+#turn this code to function
+#Function 1: extract standard descriptors
+get_stand_desc= function (df) {
+  mean=mean(df$f0)
+  sd=sd(df$f0)
+  range=range(df$f0)
+  min=range[1]
+  max=range[2]
+  stand_desc=data.frame(mean,sd,min,max)
+  return(stand_desc)
+}
+
+#test function
+stand_desc=get_stand_desc(Study1D0S101T1_f0.txt) #Works
 ```
 - Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
 ```{r}
@@ -55,17 +87,32 @@ median=median(Study1D0S101T1_f0.txt$f0)
 iqr=IQR(Study1D0S101T1_f0.txt$f0)
 abs_mean_dev=mean(abs(Study1D0S101T1_f0.txt$f0-mean(Study1D0S101T1_f0.txt$f0)))
 cof_var = sd(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)/mean(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)*100 #get coefficient of variation as percent
+
+#turn this to function
+get_less_stand_desc = function (df) {
+  median=median(df$f0)
+  iqr=IQR(df$f0)
+  abs_mean_dev=mean(abs(df$f0-mean(df$f0)))
+  cof_var = sd(df$f0, na.rm=TRUE)/mean(df$f0, na.rm=TRUE)*100
+  less_stand_desc=data.frame(median,iqr,abs_mean_dev,cof_var)
+  return(less_stand_desc)
+}
+
+#test function
+less_stand_desc=get_less_stand_desc(Study1D0S101T1_f0.txt) #Works
 ```
+
+
 - Extract "complex" descriptors: recurrence quantification analysis
 ```{r}
 library(crqa)
 par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
 
-ans = optimizeParam(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0, par, min.rec = 3.5, max.rec = 4.5)
-ans
+parameters = optimizeParam(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0, par, min.rec = 3.5, max.rec = 4.5)
+parameters
 
 
-results=crqa(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0,delay=ans$delay,embed=ans$emddim,radius=ans$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+results=crqa(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0,delay=parameters$delay,embed=parameters$emddim,radius=parameters$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
 names(results)
 
 #save rqa variables to separate variables
@@ -76,36 +123,21 @@ L = results$L #mean trajectory
 ENTR = results$ENTR
 LAM=results$LAM
 TT = results$TT
-```
 
-```{r}
-#merge the data together with demo data
-data_desc=data.frame(Subject,Diagnosis,mean,sd,min,max,median,iqr,abs_mean_dev,cof_var,RR,DET,maxL,L,ENTR,LAM,TT)
-data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis"))
-```
 
-2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
-- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
+#results_fail=data.frame(RR=NA,DET=NA,maxL=NA,L=NA,ENTR=NA,LAM=NA,TT=NA)
 
-```{r}
-n=1
-data_all=data.frame()
-
-for (i in df_all) {
-  df_name=names(df_all)[n]
-  n=n+1
-  Subject=as.numeric(substr(df_name, 10, 12))
-  Diagnosis=as.factor(substr(df_name,8,8))
-  mean=mean(Study1D0S101T1_f0.txt$f0)
-  sd=sd(Study1D0S101T1_f0.txt$f0)
-  range=range(Study1D0S101T1_f0.txt$f0)
-  min=range[1]
-  max=range[2]
-  median=median(Study1D0S101T1_f0.txt$f0)
-  iqr=IQR(Study1D0S101T1_f0.txt$f0)
-  abs_mean_dev=mean(abs(Study1D0S101T1_f0.txt$f0-mean(Study1D0S101T1_f0.txt$f0)))
-  cof_var = sd(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)/mean(Study1D0S101T1_f0.txt$f0,na.rm=TRUE)*100
-  results=crqa(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0,delay=ans$delay,embed=ans$emddim,radius=ans$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+#turn into function
+get_rqa= function (df,ans) {
+  results=
+    tryCatch(
+      {crqa(df$f0,df$f0,delay=ans$delay,embed=ans$emddim,radius=ans$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+        },
+      error=function(cond){
+        results_fail=data.frame(RR=NA,DET=NA,maxL=NA,L=NA,ENTR=NA,LAM=NA,TT=NA)
+        return(results_fail)
+      }
+  )
   RR = results$RR
   DET = results$DET
   maxL = results$maxL #maximal trajectory
@@ -113,9 +145,40 @@ for (i in df_all) {
   ENTR = results$ENTR
   LAM=results$LAM
   TT = results$TT
-  data_desc=data.frame(Subject,Diagnosis,mean,sd,min,max,median,iqr,abs_mean_dev,cof_var,RR,DET,maxL,L,ENTR,LAM,TT)
-  data_all=rbind(data_all,data_desc)
+  rqa_df = data.frame(RR,DET,maxL,L,ENTR,LAM,TT)
+  return(rqa_df)
 }
+
+#test the function
+rqa_df=get_rqa(Study1D0S101T1_f0.txt,parameters) #Works
+
+#trying to get error to test tryCatch()
+get_rqa(df_all$Study2D1S205T8_f0.txt,parameters) #gives NAs
+
+```
+
+```{r}
+#merge the data together with demo data
+data_desc=cbind(Subject,Diagnosis,Trial,Study,stand_desc,less_stand_desc,rqa_df)
+data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis","Study"))
+```
+
+2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
+- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
+
+```{r}
+data_all=data.frame()
+
+for(i in pitch_files) {
+  data=read.table(file=i,header=T)
+  info=get_info(i)
+  standard=get_stand_desc(data)
+  less_standard=get_less_stand_desc(data)
+  rqa=get_rqa(data,parameters)
+  complete_df=cbind(info,standard,less_standard,rqa)
+  data_all=rbind(data_all,complete_df)
+}
+
 ```
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
