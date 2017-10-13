@@ -18,73 +18,81 @@ N.B. There are looots of files to be dealt with. Probably too many for your comp
 1. In the course of this assignment you have to first select one datafile and figure out how to:
 
 ```{r}
+#load all libraries here
 library(plyr)
-#Load one datafile
-Study1D0S101T1_f0.txt = read.table("Pitch/Study1D0S101T1_f0.txt", header = T)
+library(crqa)
 
+
+#Load one datafile for excercise 1 and testing functions
+data_1 = read.table("Pitch/Study2D0S209T4_f0.txt", header = T)
 
 #load id's data
 demo = read.table("DemoData.txt", header= T)
-demo$Diagnosis = revalue(demo$Diagnosis, c("Control"='0', "Schizophrenia"="1"))
+demo$Diagnosis = revalue(demo$Diagnosis, c("Control"='0', "Schizophrenia"="1")) #needed for merging with frequency files
 
-#load all data to a large list of dataframes
+#save names of all files in Pitch folder (in format: Pitch/Study...txt so it can be loaded without changing wd)
 pitch_files=list.files(path="Pitch",full.names = T)
-df_all = lapply(pitch_files, function(x) read.table(x,header=T))
-#rename the df so that it doesnt contain the whole file path but just name of the original file
-names(df_all) <- substr(pitch_files, 7, 50)
 ```
 
 ```{r}
 #get info from the name of the file
-df_name = "Pitch/Study1D0S101T1_f0.txt"
+df_name = "Pitch/Study4D1S420T4_f0.txt"
 
+#cut off string and keep only from 16th letter to 18th
 Subject=as.numeric(substr(df_name, 16, 18))
+
 Diagnosis=as.factor(substr(df_name,14,14))
+
 Trial=substr(df_name,20,21)
+
 Study=as.numeric(substr(df_name,12,12))
 
-#turn it into function
-get_info=function(file_name) {
-  Subject=as.numeric(substr(file_name, 16, 18))
-  Diagnosis=as.factor(substr(file_name,14,14))
-  Trial=substr(file_name,20,21)
-  Study=as.numeric(substr(file_name,12,12))
-  info_df=data.frame(Subject,Diagnosis,Trial,Study)
-  return(info_df)
-}
-
-#test the function 
-get_info(df_name) #Works
+#bind together into dataframe
+info=data.frame(Subject,Diagnosis,Trial,Study)
 ```
 
 - Extract "standard" descriptors of pitch: Mean, standard deviation, range
 ```{r}
 #get standard descriptors
-mean=mean(Study1D0S101T1_f0.txt$f0)
-sd=sd(Study1D0S101T1_f0.txt$f0)
-range=range(Study1D0S101T1_f0.txt$f0)
-min=range[1]
+mean=mean(data_1$f0)
+
+sd=sd(data_1$f0)
+
+#gets a vector of minimum and maximum
+range=range(data_1$f0)
+min=range[1] #first number in vector is minimun
 max=range[2]
+
+#bind together
+standard=data.frame(mean,sd,min,max)
 ```
+
 - Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
 ```{r}
-median=median(Study1D0S101T1_f0.txt$f0)
-iqr=IQR(Study1D0S101T1_f0.txt$f0)
-abs_mean_dev=mean(abs(Study1D0S101T1_f0.txt$f0-mean(Study1D0S101T1_f0.txt$f0)))
-cof_var = sd(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)/mean(Study1D0S101T1_f0.txt$f0, na.rm=TRUE)*100 #get coefficient of variation as percent
+median=median(data_1$f0)
+
+iqr=IQR(data_1$f0)
+
+abs_mean_dev=mean(abs(data_1$f0-mean(data_1$f0)))
+
+cof_var = sd(data_1$f0, na.rm=TRUE)/mean(data_1$f0, na.rm=TRUE)*100 #get coefficient of variation as percent
+
+#bind together
+less_standard=data.frame(median,iqr,abs_mean_dev,cof_var)
 ```
 
 
 - Extract "complex" descriptors: recurrence quantification analysis
 ```{r}
-library(crqa)
+#list needed for optimizeParam function
 par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
 
-parameters = optimizeParam(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0, par, min.rec = 3.5, max.rec = 4.5)
+#get parameters for rqa - delay, emddim and radius
+parameters = optimizeParam(data_1$f0,data_1$f0, par, min.rec = 3.5, max.rec = 4.5)
 parameters
 
-
-results=crqa(df_all$Study1D0S104T6_f0.txt$f0,df_all$Study1D0S104T6_f0.txt$f0,delay=parameters$delay,embed=parameters$emddim,radius=parameters$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+#perform rqa - file needs to be there twice because crqa is designed for comparing two timeseries)
+results=crqa(data_1$f0,data_1$f0,delay=parameters$delay,embed=parameters$emddim,radius=parameters$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
 names(results)
 
 #save rqa variables to separate variables
@@ -95,11 +103,14 @@ L = results$L #mean trajectory
 ENTR = results$ENTR
 LAM=results$LAM
 TT = results$TT
+
+#bind together
+rqa = data.frame(RR, DET, maxL, L, ENTR, LAM, TT)
 ```
 
 ```{r}
-#merge the data together with demo data
-#data_desc=data.frame(write all variables here)
+#cbind extracted info and merge with demo data
+data_desc=cbind(info, standard, less_standard, rqa)
 data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis","Study"))
 ```
 
@@ -108,25 +119,47 @@ data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis","Study"))
 
 ```{r}
 #1. Wrap all the code from excercise 1 to functions
+# extract info about subject from name of the file
+get_info=function(file_name) {
+  
+  Subject=as.numeric(substr(file_name, 16, 18))
+  Diagnosis=as.factor(substr(file_name,14,14))
+  Trial=substr(file_name,20,21)
+  Study=as.numeric(substr(file_name,12,12))
+  
+  info_df=data.frame(Subject,Diagnosis,Trial,Study)
+  
+  return(info_df)
+}
+
+#test the function 
+get_info(df_name) #Works
+```
+
+```{r}
 #Chunk 1: turn that code to a function
 #Function 1: extract standard descriptors
 get_stand_desc= function (df) {
+  
   mean=mean(df$f0)
   sd=sd(df$f0)
   range=range(df$f0)
   min=range[1]
   max=range[2]
+  
   stand_desc=data.frame(mean,sd,min,max)
+  
   return(stand_desc)
+  
 }
 
 #test function
-stand_desc=get_stand_desc(Study1D0S101T1_f0.txt) #Works
+get_stand_desc(data_1) #Works
 ```
 
 ```{r}
 #Chunk 2: turned to function
-#turn this to function
+
 get_less_stand_desc = function (df) {
   median=median(df$f0)
   iqr=IQR(df$f0)
@@ -137,33 +170,47 @@ get_less_stand_desc = function (df) {
 }
 
 #test function
-less_stand_desc=get_less_stand_desc(Study1D0S101T1_f0.txt) #Works
+get_less_stand_desc(data_1) #Works
 ```
 
 ```{r}
 #rqa needs first the list of parameters - get optimal parameters here
-#list needed for running the optimizeParam function
-par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
 
 #LOOP through all datafiles and get parameters from them - then get mean or median of all parameters to get the optimal ones that can be used for all datafiles
+
 param_all=data.frame()
+
 for (i in pitch_files) {
   data=read.table(file=i,header=T)
-  param = tryCatch(
-    {optimizeParam(data$f0,data$f0, par, min.rec = 3.5, max.rec = 4.5)
+  
+  #list needed for running the optimizeParam function
+  par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2, minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
+  
+  param = 
+    tryCatch(
+    
+      { #this is the try function - if it fails then error function will be run
+        optimizeParam(data$f0,data$f0, par, min.rec = 3.5, max.rec = 4.5)
     },
-    error=function(cond){
+   #move to this part if the try part fails
+     error=function(cond){
         #return results with only NAs
         parameters_fail=list(radius=NA,emddim=NA,delay=NA)
         return(parameters_fail)
-      })
+        
+      }) #end of tryCatch
+  
+  #save output of optimizeParam to variables - either 
   radius=param$radius
   emddim=param$emddim
   delay=param$delay
+  
+  #bind these variables to dataframe
   param_df=data.frame(radius,emddim,delay)
   param_all=rbind(param_df,param_all)
 }
-#remove NAs
+
+#remove NAs from output of the loop
 param_all = na.omit(param_all)
 
 #summarize param_all to final df with mean
@@ -173,6 +220,8 @@ parameters_mean = param_all %>%
 #with median => seems better - numbers are similar but emddim is without decimals :-)
 parameters_median = param_all %>%
   summarize(radius=median(radius),emddim=median(emddim),delay=median(delay))
+
+#parameters_final = list(radius= ,emddim= ,delay=)
 ```
 
 ```{r}
@@ -203,12 +252,10 @@ get_rqa= function (df,ans) {
 
 #test the function
 get_rqa(Study1D0S101T1_f0.txt,parameters_final) #Works
-
-#trying to get error to test tryCatch()
-get_rqa(df_all$Study2D1S205T8_f0.txt,parameters_final) #gives NAs
 ```
 
 ```{r}
+#let's loop through all files, extract the variables and rbind them all to one mega dataframe
 data_all=data.frame()
 
 for(i in pitch_files) {
@@ -220,6 +267,18 @@ for(i in pitch_files) {
   complete_df=cbind(info,standard,less_standard,rqa)
   data_all=rbind(data_all,complete_df)
 }
+```
+
+```{r}
+#the final data need some tidying
+
+#rename levels of Diagnosis from 1 and 0 to Scizophrenia and Control
+
+#turn everything that should be factor to factor and numeric what should be numeric etc
+
+#combine ID and Diagnosis to new column to distinguish between schizophrenics and controls (each pair has the same ID)
+
+#save the data to csv file
 
 ```
 
