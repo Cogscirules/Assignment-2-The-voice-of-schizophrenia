@@ -21,15 +21,11 @@ N.B. There are looots of files to be dealt with. Probably too many for your comp
 #load all libraries here
 library(plyr)
 library(crqa)
-library(dplyr)
+library(magrittr)
 
 
 #Load one datafile for excercise 1 and testing functions
 data_1 = read.table("Pitch/Study2D0S209T4_f0.txt", header = T)
-
-#load id's data
-demo = read.table("DemoData.txt", header= T)
-demo$Diagnosis = revalue(demo$Diagnosis, c("Control"='0', "Schizophrenia"="1")) #needed for merging with frequency files
 
 #save names of all files in Pitch folder (in format: Pitch/Study...txt so it can be loaded without changing wd)
 pitch_files=list.files(path="Pitch",full.names = T)
@@ -112,7 +108,6 @@ rqa = data.frame(RR, DET, maxL, L, ENTR, LAM, TT)
 ```{r}
 #cbind extracted info and merge with demo data
 data_desc=cbind(info, standard, less_standard, rqa)
-data_desc=merge(data_desc,demo,by=c("Subject","Diagnosis","Study"))
 ```
 
 2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
@@ -272,22 +267,50 @@ for(i in pitch_files) {
   complete_df=cbind(info,standard,less_standard,rqa)
   data_all=rbind(data_all,complete_df)
 }
+
+#save the data to csv file so I don't need to run the loop again
+write.csv(data_all, file = "data_analysis.csv",row.names = F)
 ```
 
 ```{r}
-#the final data need some tidying
+#load the final data to be independent of the first part of the code
+final_data = read.csv("data_analysis.csv",header=T)
+
+#load demographic data
+demo = read.table("DemoData.txt", header= T)
+
+#
+
+#the final data need some tidying before merging with demo
+
+#turn everything that should be factor to factor and numeric what should be numeric
+final_data$Diagnosis= as.factor(final_data$Diagnosis)
 
 #rename levels of Diagnosis from 1 and 0 to Scizophrenia and Control
+final_data$Diagnosis = plyr::revalue(final_data$Diagnosis, c('0'="Control", "1"="Schizophrenia"))
 
-#turn everything that should be factor to factor and numeric what should be numeric etc
+#remove the underscore from the trial numbers
+library(stringr)
+final_data$Trial=str_replace(final_data$Trial,"_","")
+
+#merge with demo data
+complete_data = merge(final_data,demo, by=c("Subject", "Diagnosis", "Study"))
 
 #combine ID and Diagnosis to new column to distinguish between schizophrenics and controls (each pair has the same ID)
+library(tidyr)
+complete_data= unite(complete_data, ID, c(Subject,Diagnosis),remove=F,sep="_")
 
-#save the data to csv file
-write.csv(data_all, file = "data_analysis.csv")
+#save the complete file just to be sure it doesn't go missing
+write.csv(complete_data, "complete_data.csv",row.names = F)
 ```
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+
+```{r}
+library(lmerTest)
+complete_data$ID=as.factor(complete_data$ID)
+```
+
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
 3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
 
