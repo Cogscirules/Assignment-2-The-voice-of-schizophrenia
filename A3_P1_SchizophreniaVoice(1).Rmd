@@ -21,6 +21,7 @@ N.B. There are looots of files to be dealt with. Probably too many for your comp
 #load all libraries here
 library(plyr)
 library(crqa)
+library(dplyr)
 
 
 #Load one datafile for excercise 1 and testing functions
@@ -221,7 +222,11 @@ parameters_mean = param_all %>%
 parameters_median = param_all %>%
   summarize(radius=median(radius),emddim=median(emddim),delay=median(delay))
 
-#parameters_final = list(radius= ,emddim= ,delay=)
+#look at results
+parameters_mean #taking delay from here - shorter delay can reduce number of NAs because some ts are very short, shorter than delay
+parameters_median #taking emddim because it's without decimals - needs to be and also radius taking from here because its lower and therefore should maintain RR closer to 4%
+
+parameters_final = list(radius=parameters_median$radius ,emddim=parameters_median$emddim ,delay=parameters_mean$delay)
 ```
 
 ```{r}
@@ -251,7 +256,7 @@ get_rqa= function (df,ans) {
 }
 
 #test the function
-get_rqa(Study1D0S101T1_f0.txt,parameters_final) #Works
+get_rqa(data_1,parameters_final) #Works and also RR is close to 4% with the common parameters
 ```
 
 ```{r}
@@ -263,7 +268,7 @@ for(i in pitch_files) {
   info=get_info(i)
   standard=get_stand_desc(data)
   less_standard=get_less_stand_desc(data)
-  rqa=get_rqa(data,parameters)
+  rqa=get_rqa(data,parameters_final)
   complete_df=cbind(info,standard,less_standard,rqa)
   data_all=rbind(data_all,complete_df)
 }
@@ -279,7 +284,7 @@ for(i in pitch_files) {
 #combine ID and Diagnosis to new column to distinguish between schizophrenics and controls (each pair has the same ID)
 
 #save the data to csv file
-
+write.csv(data_all, file = "data_analysis.csv")
 ```
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
