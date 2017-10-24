@@ -22,6 +22,7 @@ N.B. There are looots of files to be dealt with. Probably too many for your comp
 library(plyr)
 library(crqa)
 library(magrittr)
+getwd()
 
 
 #Load one datafile for excercise 1 and testing functions
@@ -254,7 +255,7 @@ get_rqa= function (df,ans) {
 get_rqa(data_1,parameters_final) #Works and also RR is close to 4% with the common parameters
 ```
 
-```{r}
+```{r final loop}
 #let's loop through all files, extract the variables and rbind them all to one mega dataframe
 data_all=data.frame()
 
@@ -272,7 +273,7 @@ for(i in pitch_files) {
 write.csv(data_all, file = "data_analysis.csv",row.names = F)
 ```
 
-```{r}
+```{r tidy data}
 #load the final data to be independent of the first part of the code
 final_data = read.csv("data_analysis.csv",header=T)
 
@@ -299,6 +300,7 @@ complete_data = merge(final_data,demo, by=c("Subject", "Diagnosis", "Study"))
 #combine ID and Diagnosis to new column to distinguish between schizophrenics and controls (each pair has the same ID)
 library(tidyr)
 complete_data= unite(complete_data, ID, c(Subject,Diagnosis),remove=F,sep="_")
+complete_data$range = complete_data$max-complete_data$min
 
 #save the complete file just to be sure it doesn't go missing
 write.csv(complete_data, "complete_data.csv",row.names = F)
@@ -306,12 +308,41 @@ write.csv(complete_data, "complete_data.csv",row.names = F)
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 
-```{r}
+```{r prepare data}
+#start over here so that you dont need to run the whole code every time
+library(ggplot2)
 library(lmerTest)
-complete_data$ID=as.factor(complete_data$ID)
+library(magrittr)
+library(modelr)
+library(MuMIn)
+
+#load complete data
+data=read.csv("complete_data.csv")
+
+#turn variables to correct class
+data$Subject = as.factor(data$Subject)
+
 ```
 
-- Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+```{r make models}
+model_mean = lmer(mean ~Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
+model_sd = lmer(sd ~ Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
+model_range = lmer(range ~Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) # yes - Dia and Study
+model_median = lmer(median ~ Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
+model_iqr = lmer(iqr ~ Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
+model_absmeandev = lmer(abs_mean_dev ~ Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
+model_cofvar = lmer(cof_var ~Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #yes Dia
+model_RR = lmer(RR ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) #yes Dia
+model_DET= lmer(DET ~Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) # yes Dia
+
+model_maxL = lmer(maxL ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) # yes Study
+summary(model_maxL)
+model_L = lmer(L ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) #nope
+model_ENTR = lmer(ENTR ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) #yes Dia and Study
+model_LAM = lmer(LAM ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) # yes - Dia and Study
+model_TT = lmer(TT ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) # yes Study
+```
+- Bonus points:cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
 3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
 
 4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
