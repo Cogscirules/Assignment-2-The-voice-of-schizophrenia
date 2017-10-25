@@ -308,50 +308,118 @@ write.csv(complete_data, "complete_data.csv",row.names = F)
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 
-```{r prepare data}
+```{r setup}
 #start over here so that you dont need to run the whole code every time
 library(ggplot2)
 library(lmerTest)
 library(magrittr)
 library(modelr)
 library(MuMIn)
+library(caret)
 
 #load complete data
-data=read.csv("complete_data.csv")
+data_acoustic=read.csv("complete_data.csv")
 
 #turn variables to correct class
-data$Subject = as.factor(data$Subject)
+data_acoustic$Subject = as.factor(data_acoustic$Subject)
 
 ```
 
 ```{r make models}
-model_mean = lmer(mean ~Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
-model_sd = lmer(sd ~ Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
-model_range = lmer(range ~Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) # yes - Dia and Study
-model_median = lmer(median ~ Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
-model_iqr = lmer(iqr ~ Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
-model_absmeandev = lmer(abs_mean_dev ~ Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #nope
-model_cofvar = lmer(cof_var ~Diagnosis+Trial+Study+(1+Trial|ID),data,REML=F) #yes Dia
-model_RR = lmer(RR ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) #yes Dia
-model_DET= lmer(DET ~Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) # yes Dia
+model_mean = lmer(mean ~Diagnosis+Trial+Study+(1+Trial|ID),data_acoustic,REML=F) #nope
+summary(model_mean)
 
-model_maxL = lmer(maxL ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) # yes Study
+model_sd = lmer(sd ~ Diagnosis+Trial+Study+(1+Trial|ID),data_acoustic,REML=F) #nope
+summary(model_sd)
+
+model_range = lme4::lmer(range ~Diagnosis+Trial+Study+(1+Trial|ID),data_acoustic,REML=F) # yes - Dia and Study
+summary(model_range)
+
+model_median = lmer(median ~ Diagnosis+Trial+Study+(1+Trial|ID),data_acoustic,REML=F) #nope
+summary(model_median)
+
+model_iqr = lmer(iqr ~ Diagnosis+Trial+Study+(1+Trial|ID),data_acoustic,REML=F) #nope
+summary(model_iqr)
+
+model_absmeandev = lmer(abs_mean_dev ~ Diagnosis+Trial+Study+(1+Trial|ID),data_acoustic,REML=F) #nope
+summary(model_absmeandev)
+
+model_cofvar = lmer(cof_var ~Diagnosis+Trial+Study+(1+Trial|ID),data_acoustic,REML=F) #yes Dia
+summary(model_cofvar)
+
+model_RR = lmer(RR ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data_acoustic),REML=F) #yes Dia
+summary(model_RR)
+
+model_DET= lmer(DET ~Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data_acoustic),REML=F) # yes Dia
+summary(model_DET)
+
+model_maxL = lmer(maxL ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data_acoustic),REML=F) # yes Study
 summary(model_maxL)
-model_L = lmer(L ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) #nope
-model_ENTR = lmer(ENTR ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) #yes Dia and Study
-model_LAM = lmer(LAM ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) # yes - Dia and Study
-model_TT = lmer(TT ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data),REML=F) # yes Study
+
+model_L = lmer(L ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data_acoustic),REML=F) #nope
+summary(model_L)
+
+model_ENTR = lmer(ENTR ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data_acoustic),REML=F) #yes Dia andStudy
+summary(model_ENTR)
+
+model_LAM = lmer(LAM ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data_acoustic),REML=F) # yes - Dia and Study 
+summary(model_LAM)
+
+model_TT = lmer(TT ~ Diagnosis+Trial+Study+(1+Trial|ID),na.omit(data_acoustic),REML=F) # yes Study
+summary(model_TT)
 ```
 - Bonus points:cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+
+I decided to cross-validate only models that showed significant effect of diagnosis since that's the main effect of interest. Significant were; model_range, model_cofvar, model_RR, model_DET, model_ENTR and model_LAM.
+```{r}
+#which models to crossvalidate? model_range, model_cofvar, model_RR, model_DET, model_ENTR and model_LAM
+
+#come back to this if you have time
+```
+
 3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+
+Yes, study is a significant predictor some of these models. This difference could be explained by differences in the study design. For example the setting could be different or different stimuli might have been used which would affect all participants. 
+```{r interaction of study}
+#is there interaction of study and diagnosis?
+#add interaction only where study or diagnosis were significant
+model_range_inter = lmer(range ~Diagnosis+Trial+Study*Diagnosis+(1+Trial|ID),data_acoustic,REML=F)
+summary(model_range_inter) #no
+
+model_cofvar_inter = lmer(cof_var ~Diagnosis+Trial+Study*Diagnosis+(1+Trial|ID),data_acoustic,REML=F)
+summary(model_cofvar_inter) #no
+
+model_RR_inter = lmer(RR ~Diagnosis+Trial+Study*Diagnosis+(1+Trial|ID),data_acoustic,REML=F)
+summary(model_RR_inter) #no
+
+model_DET_inter = lmer(DET ~Diagnosis+Trial+Study*Diagnosis+(1+Trial|ID),data_acoustic,REML=F)
+summary(model_DET_inter) #yes
+
+model_maxL_inter = lmer(maxL ~Diagnosis+Trial+Study*Diagnosis+(1+Trial|ID),data_acoustic,REML=F)
+summary(model_maxL_inter) #no
+
+model_ENTR_inter = lmer(ENTR ~Diagnosis+Trial+Study*Diagnosis+(1+Trial|ID),data_acoustic,REML=F)
+summary(model_ENTR_inter) #yes
+
+model_LAM_inter = lmer(LAM ~Diagnosis+Trial+Study*Diagnosis+(1+Trial|ID),data_acoustic,REML=F)
+summary(model_LAM_inter) #yes
+
+model_TT_inter = lmer(TT ~Diagnosis+Trial+Study*Diagnosis+(1+Trial|ID),data_acoustic,REML=F)
+summary(model_TT_inter) #no
+```
+
+In 3 models there was a significant interaction Study*Diagnosis; maxL Entropy and LAM models. This interaction shows that the different studies were differently designed and these differences influenced the participants differently based on their Diagnosis.
 
 4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
 - Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
 
-5. Bonus question. In the Clinical Info file you have additional information about the participants. Which additional parameters (e.g. age, gender) should we control for? Report the effects.
+After looking in the lme4 package documentation I found out that t-values reported in summary of lmer model are identical to z-scores reported by glmer and therefore I can simply compare the t-values of the models as they are.
 
-6. Write a paragraph reporting methods and results
+```{r compare effect sizes}
+#compare t-values of my models significant
+coef(summary(model_range))["DiagnosisSchizophrenia","t value"] 
 
-[Next assignment: can we use these measures to build a tool that diagnoses people from voice only?]
+model_list=list(model_range, model_cofvar, model_RR, model_DET, model_ENTR,model_LAM)
 
-## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time
+lapply(model_list,function(x) coef(summary(x))["DiagnosisSchizophrenia","t value"]) #coefficient of variance is the most sensitive with -3.624446 second is LAM
+```
